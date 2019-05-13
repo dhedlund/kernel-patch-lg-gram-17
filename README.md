@@ -1,4 +1,34 @@
+## Update: 2019-05-13
+
+TL;DR: ACPI error workaround as of May 13th, add `pci=nommconf`.
+
+Small update on the endless ACPI errors. The issue appears to be related to
+trying to increase the io size allocated to a specific pci hotplug device on
+the thunderbolt 3 bridge. What I'm seeing is consistent with the results of the
+git bisect I did earlier that added a call to reallocate unassigned bridge
+resources; a change introduced in that commit tries to optimize the layout of
+memory and io across a bridge, and allocates more resources to hotplug buses
+that would otherwise go to waste.
+
+When the above is performed in combination with MMCONFIG/MCFG (memory-mapped
+config space/table provided by motherboard (firmware, bios?), some kind of
+corruption occurs that immediately begins spamming the ACPI interrupt handler
+with junk events; this may be due to memory corruption/offset errors, but I'm
+not sure yet. They don't appear to be valid events; they seem to be randomized
+and each event has flags set on them that should make it impossible to reach
+the code paths that are generating the errors due to guards on the dispatch
+side. ACPI errors have their event's dispatch type set to none, which should
+never happen...it's not the GPE XX that's the problem, they're just bogus.
+
+I'm still trying to narrow the issue further to see if it's a kernel bug or on
+Intel/LGs side. Unfortunately, I won't have more time for several days. Most
+likely the issue is with the MMCONFIG table, or an assumption the kernel is
+making that it can grow into specific memory addresses that are actually
+reserved.
+
 ## Overview
+
+_(outdated, see update above)_
 
 LG Gram 17 laptops have trouble booting linux with kernels newer than 4.17.
 
@@ -43,6 +73,8 @@ May 05 02:48:07 eugenia systemd-journald[507]: Missed 2 kernel messages
 
 ## Issue Identified
 
+_(outdated, see update above)_
+
 Because the laptop is known to boot with older kernels, I was able to track
 down the commit that introduced the acpi errors through `git bisecct` and
 recompiling a minimal kernel.
@@ -62,6 +94,8 @@ The description is consistent with the parts of the kernel raising the errors.
 
 
 ## Patching / "I need a workaround!"
+
+_(outdated, see update above)_
 
 Performing a `git revert 84c8b58ed3addf17d3beb2e5037b001ffa65c5ef` against
 the latest linux kernel checkout does not apply cleanly, resulting in a
